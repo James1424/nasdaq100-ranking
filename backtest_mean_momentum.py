@@ -17,6 +17,9 @@ RETURNS_OUTPUT = "nasdaq100_mean_momentum_backtest_returns.csv"
 HOLDINGS_OUTPUT = "nasdaq100_mean_momentum_backtest_holdings.csv"
 SUMMARY_OUTPUT = "nasdaq100_mean_momentum_backtest_summary.csv"
 
+REGIME_RETURNS_OUTPUT = "nasdaq100_mean_momentum_regime_backtest_returns.csv"
+REGIME_SUMMARY_OUTPUT = "nasdaq100_mean_momentum_regime_backtest_summary.csv"
+
 
 def download_adjusted_close(tickers, start_date, end_date):
     data = yf.download(
@@ -34,8 +37,9 @@ def download_adjusted_close(tickers, start_date, end_date):
     for ticker in tickers:
         try:
             if isinstance(data.columns, pd.MultiIndex):
-                if "Close" in data[ticker].columns:
-                    prices[ticker] = data[ticker]["Close"]
+                if ticker in data.columns.get_level_values(0):
+                    if "Close" in data[ticker].columns:
+                        prices[ticker] = data[ticker]["Close"]
             else:
                 if "Close" in data.columns:
                     prices[ticker] = data["Close"]
@@ -47,7 +51,8 @@ def download_adjusted_close(tickers, start_date, end_date):
     price_df = price_df.ffill()
 
     return price_df
-    
+
+
 def download_market_index(ticker, start_date, end_date):
     data = yf.download(
         tickers=ticker,
@@ -68,16 +73,21 @@ def download_market_index(ticker, start_date, end_date):
         elif ticker in data.columns.get_level_values(0):
             close = data[ticker]["Close"]
         else:
-            raise KeyError(f"Could not find Close price for {ticker}. Columns: {data.columns}")
+            raise KeyError(
+                f"Could not find Close price for {ticker}. Columns: {data.columns}"
+            )
     else:
         if "Close" not in data.columns:
-            raise KeyError(f"Close column not found for {ticker}. Columns: {data.columns}")
+            raise KeyError(
+                f"Close column not found for {ticker}. Columns: {data.columns}"
+            )
         close = data["Close"]
 
     close = close.dropna()
     close.name = ticker
 
     return close
+
 
 def calculate_six_month_mean_momentum(monthly_prices):
     monthly_returns = monthly_prices.pct_change()
@@ -90,9 +100,9 @@ def calculate_six_month_mean_momentum(monthly_prices):
 
     return six_month_mean_momentum
 
+
 def calculate_market_regime(market_index_prices):
     monthly_index = market_index_prices.resample("ME").last()
-
     market_ma = monthly_index.rolling(window=MARKET_TREND_MONTHS).mean()
 
     regime = pd.DataFrame(
@@ -115,13 +125,78 @@ def calculate_market_regime(market_index_prices):
 
     return regime
 
-def run_backtest(price_df, market_index_prices):
+
+def run_backtest(price_df):
+    monthly_prices = price_df.resample("ME").last()
+    momentum_score = calculate_six_month_mean_momentum(monthly_prices)
+
+    portfolio_records = []
+    holdings_records = []
+
+    for i in range(LOOKBACK_MONTHS, len(monthly_prices) - 1):
+        ranking_date = monthly_prices.index[i]
+        holding_start = monthly_prices.index[i]
+        holding_end = monthly_prices.index[i + 1]
+
+        scores = momentum_score.iloc[i].dropna()
+        selected = scores.sort_values(ascending=False).head(TOP_N).index.tolist()
+
+        if len(selected) == 0:
+            continue
+
+        start_prices = monthly_prices.loc[holding_start, selected]
+        end_prices = monthly_prices.loc[holding_end, selected]
+
+        stock_returns = end_prices / start_prices - 1
+        stock_returns = stock_returns.dropna()
+
+        if len(stock_returns) == 0:
+            continue
+
+        portfolio_return = stock_returns.mean()
+        actual_selected = stock_returns.index.tolist()
+
+        portfolio_records.append(
+            {
+                "ranking_date": ranking_date.strftime("%Y-%m-%d"),
+                "selected_stocks": ",".join(actual_selected),
+                "holding_start": holding_start.strftime("%Y-%m-%d"),
+                "holding_end": holding_end.strftime("%Y-%m-%d"),
+                "portfolio_return": portfolio_return,
+                "portfolio_return_percent": portfolio_return * 100,
+            }
+        )
+
+        holdings_records.append(
+            {
+                "ranking_date": ranking_date.strftime("%Y-%m-%d"),
+                "holding_start": holding_start.strftime("%Y-%m-%d"),
+                "holding_end": holding_end.strftime("%Y-%m-%d"),
+                "selected_stocks": ",".join(actual_selected),
+            }
+        )
+
+    returns_df = pd.DataFrame(portfolio_records)
+    holdings_df = pd.DataFrame(holdings_records)
+
+    if len(returns_df) > 0:
+        returns_df["cumulative_return"] = (
+            1 + returns_df["portfolio_return"]
+        ).cumprod() - 1
+
+        returns_df["cumulative_return_percent"] = (
+            returns_df["cumulative_return"] * 100
+        )
+
+    return returns_df, holdings_df
+
+
+def run_market_regime_backtest(price_df, market_index_prices):
     monthly_prices = price_df.resample("ME").last()
     momentum_score = calculate_six_month_mean_momentum(monthly_prices)
     market_regime = calculate_market_regime(market_index_prices)
 
     portfolio_records = []
-    holdings_records = []
 
     for i in range(LOOKBACK_MONTHS, len(monthly_prices) - 1):
         ranking_date = monthly_prices.index[i]
@@ -158,7 +233,6 @@ def run_backtest(price_df, market_index_prices):
             portfolio_return = stock_returns.mean()
             selected_stocks = ",".join(stock_returns.index.tolist())
             trade_executed = True
-
         else:
             portfolio_return = 0.0
             selected_stocks = "CASH"
@@ -180,20 +254,7 @@ def run_backtest(price_df, market_index_prices):
             }
         )
 
-        holdings_records.append(
-            {
-                "ranking_date": ranking_date.strftime("%Y-%m-%d"),
-                "market_regime": market_regime_label,
-                "is_bull_market": is_bull_market,
-                "trade_executed": trade_executed,
-                "holding_start": holding_start.strftime("%Y-%m-%d"),
-                "holding_end": holding_end.strftime("%Y-%m-%d"),
-                "selected_stocks": selected_stocks,
-            }
-        )
-
     returns_df = pd.DataFrame(portfolio_records)
-    holdings_df = pd.DataFrame(holdings_records)
 
     if len(returns_df) > 0:
         returns_df["cumulative_return"] = (
@@ -204,7 +265,7 @@ def run_backtest(price_df, market_index_prices):
             returns_df["cumulative_return"] * 100
         )
 
-    return returns_df, holdings_df
+    return returns_df
 
 
 def summarize_backtest(returns_df):
@@ -228,11 +289,6 @@ def summarize_backtest(returns_df):
     max_drawdown = drawdown.min()
 
     win_rate = (monthly_returns > 0).mean()
-    
-    bull_months = returns_df["is_bull_market"].sum() if "is_bull_market" in returns_df.columns else None
-    bear_months = len(returns_df) - bull_months if bull_months is not None else None
-    trading_months = returns_df["trade_executed"].sum() if "trade_executed" in returns_df.columns else None
-    cash_months = len(returns_df) - trading_months if trading_months is not None else None
 
     summary = pd.DataFrame(
         [
@@ -242,8 +298,57 @@ def summarize_backtest(returns_df):
                 "end_date": returns_df["holding_end"].iloc[-1],
                 "lookback_months": LOOKBACK_MONTHS,
                 "top_n": TOP_N,
+                "total_return_percent": total_return * 100,
+                "annualized_return_percent": annualized_return * 100,
+                "annualized_volatility_percent": annualized_volatility * 100,
+                "sharpe_ratio_without_risk_free_rate": sharpe_ratio,
+                "max_drawdown_percent": max_drawdown * 100,
+                "win_rate_percent": win_rate * 100,
+                "number_of_months": len(monthly_returns),
+            }
+        ]
+    )
+
+    return summary
+
+
+def summarize_market_regime_backtest(returns_df):
+    if len(returns_df) == 0:
+        return pd.DataFrame()
+
+    monthly_returns = returns_df["portfolio_return"]
+
+    total_return = (1 + monthly_returns).prod() - 1
+    annualized_return = (1 + total_return) ** (12 / len(monthly_returns)) - 1
+    annualized_volatility = monthly_returns.std() * (12 ** 0.5)
+
+    if annualized_volatility == 0 or pd.isna(annualized_volatility):
+        sharpe_ratio = None
+    else:
+        sharpe_ratio = annualized_return / annualized_volatility
+
+    cumulative = (1 + monthly_returns).cumprod()
+    running_max = cumulative.cummax()
+    drawdown = cumulative / running_max - 1
+    max_drawdown = drawdown.min()
+
+    win_rate = (monthly_returns > 0).mean()
+
+    bull_months = int(returns_df["is_bull_market"].sum())
+    bear_months = len(returns_df) - bull_months
+    trading_months = int(returns_df["trade_executed"].sum())
+    cash_months = len(returns_df) - trading_months
+
+    summary = pd.DataFrame(
+        [
+            {
+                "strategy_name": "Nasdaq-100 Top 3 Six-Month Mean Momentum With Market Regime Filter",
                 "market_index_ticker": MARKET_INDEX_TICKER,
                 "market_trend_months": MARKET_TREND_MONTHS,
+                "start_date": returns_df["holding_start"].iloc[0],
+                "end_date": returns_df["holding_end"].iloc[-1],
+                "lookback_months": LOOKBACK_MONTHS,
+                "top_n": TOP_N,
                 "bull_market_months": bull_months,
                 "bear_market_months": bear_months,
                 "trading_months": trading_months,
@@ -274,27 +379,41 @@ if __name__ == "__main__":
         end_date=END_DATE,
     )
 
+    print("\nRunning six-month mean momentum backtest without market regime filter...")
+    returns_df, holdings_df = run_backtest(price_df)
+
+    print("\nSummarizing original backtest...")
+    summary_df = summarize_backtest(returns_df)
+
     print("\nDownloading market index prices...")
     market_index_prices = download_market_index(
         ticker=MARKET_INDEX_TICKER,
         start_date=START_DATE,
         end_date=END_DATE,
     )
-    
-    print("\nRunning six-month mean momentum backtest with market regime filter...")
-    returns_df, holdings_df = run_backtest(price_df, market_index_prices)
 
-    print("\nSummarizing backtest...")
-    summary_df = summarize_backtest(returns_df)
+    print("\nRunning six-month mean momentum backtest with market regime filter...")
+    regime_returns_df = run_market_regime_backtest(price_df, market_index_prices)
+
+    print("\nSummarizing market regime backtest...")
+    regime_summary_df = summarize_market_regime_backtest(regime_returns_df)
 
     returns_df.to_csv(RETURNS_OUTPUT, index=False)
     holdings_df.to_csv(HOLDINGS_OUTPUT, index=False)
     summary_df.to_csv(SUMMARY_OUTPUT, index=False)
 
-    print("\nBacktest summary:")
+    regime_returns_df.to_csv(REGIME_RETURNS_OUTPUT, index=False)
+    regime_summary_df.to_csv(REGIME_SUMMARY_OUTPUT, index=False)
+
+    print("\nOriginal backtest summary:")
     print(summary_df.to_string(index=False))
+
+    print("\nMarket regime backtest summary:")
+    print(regime_summary_df.to_string(index=False))
 
     print("\nBacktest files saved:")
     print(RETURNS_OUTPUT)
     print(HOLDINGS_OUTPUT)
     print(SUMMARY_OUTPUT)
+    print(REGIME_RETURNS_OUTPUT)
+    print(REGIME_SUMMARY_OUTPUT)
