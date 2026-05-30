@@ -90,11 +90,11 @@ def run_backtest(price_df):
         portfolio_records.append(
             {
                 "ranking_date": ranking_date.strftime("%Y-%m-%d"),
+                "selected_stocks": ",".join(selected),
                 "holding_start": holding_start.strftime("%Y-%m-%d"),
                 "holding_end": holding_end.strftime("%Y-%m-%d"),
                 "portfolio_return": portfolio_return,
                 "portfolio_return_percent": portfolio_return * 100,
-                "number_of_stocks": len(stock_returns),
             }
         )
 
