@@ -68,19 +68,24 @@ def download_market_index(ticker, start_date, end_date):
     if isinstance(data.columns, pd.MultiIndex):
         if "Close" in data.columns.get_level_values(0):
             close = data["Close"]
+
             if isinstance(close, pd.DataFrame):
                 close = close.iloc[:, 0]
+
         elif ticker in data.columns.get_level_values(0):
             close = data[ticker]["Close"]
+
         else:
             raise KeyError(
                 f"Could not find Close price for {ticker}. Columns: {data.columns}"
             )
+
     else:
         if "Close" not in data.columns:
             raise KeyError(
                 f"Close column not found for {ticker}. Columns: {data.columns}"
             )
+
         close = data["Close"]
 
     close = close.dropna()
@@ -103,6 +108,7 @@ def calculate_six_month_mean_momentum(monthly_prices):
 
 def calculate_market_regime(market_index_prices):
     monthly_index = market_index_prices.resample("ME").last()
+
     market_ma = monthly_index.rolling(window=MARKET_TREND_MONTHS).mean()
 
     regime = pd.DataFrame(
@@ -232,11 +238,10 @@ def run_market_regime_backtest(price_df, market_index_prices):
 
             portfolio_return = stock_returns.mean()
             selected_stocks = ",".join(stock_returns.index.tolist())
-            trade_executed = True
+
         else:
             portfolio_return = 0.0
             selected_stocks = "CASH"
-            trade_executed = False
 
         portfolio_records.append(
             {
@@ -335,8 +340,9 @@ def summarize_market_regime_backtest(returns_df):
 
     bull_months = int(returns_df["is_bull_market"].sum())
     bear_months = len(returns_df) - bull_months
-    trading_months = int(returns_df["trade_executed"].sum())
-    cash_months = len(returns_df) - trading_months
+
+    trading_months = bull_months
+    cash_months = bear_months
 
     summary = pd.DataFrame(
         [
