@@ -29,7 +29,11 @@ jobs:
       - name: Run ranking script
         run: |
           python calculate_momentum_rank.py
-
+      
+      - name: Run mean momentum backtest
+        run: |
+          python backtest_mean_momentum.py
+      
       - name: Update README
         run: |
           python update_readme.py
@@ -43,6 +47,13 @@ jobs:
           ls -la
           find . -name "*.csv"
 
-          git add nasdaq100_six_month_momentum_rank.csv README.md
-          git commit -m "Update Nasdaq100 ranking data and README" || echo "No changes to commit"
+          git add nasdaq100_six_month_momentum_rank.csv
+          git add nasdaq100_mean_momentum_backtest_returns.csv
+          git add nasdaq100_mean_momentum_backtest_holdings.csv
+          git add nasdaq100_mean_momentum_backtest_summary.csv
+          git add README.md
+
+          git commit -m "Update ranking and mean momentum backtest" || echo "No changes to commit"
           git push
+          
+
