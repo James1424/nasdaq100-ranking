@@ -36,7 +36,79 @@ def format_percent_columns(df):
                 df[col] = df[col].round(2)
 
     return df
+    
+def summarize_monthly_return_statistics(backtest_returns):
+    if backtest_returns is None or len(backtest_returns) == 0:
+        return "Backtest return statistics file not found."
 
+    if "portfolio_return" not in backtest_returns.columns:
+        return "Column portfolio_return not found in backtest returns file."
+
+    returns = backtest_returns["portfolio_return"].dropna()
+
+    if len(returns) == 0:
+        return "No valid monthly returns found."
+
+    winning_months = returns[returns > 0]
+    losing_months = returns[returns < 0]
+    flat_months = returns[returns == 0]
+
+    stats = pd.DataFrame(
+        [
+            {
+                "metric": "Total months",
+                "value": len(returns),
+            },
+            {
+                "metric": "Winning months",
+                "value": len(winning_months),
+            },
+            {
+                "metric": "Losing months",
+                "value": len(losing_months),
+            },
+            {
+                "metric": "Flat months",
+                "value": len(flat_months),
+            },
+            {
+                "metric": "Win rate percent",
+                "value": round(len(winning_months) / len(returns) * 100, 2),
+            },
+            {
+                "metric": "Average monthly return percent",
+                "value": round(returns.mean() * 100, 2),
+            },
+            {
+                "metric": "Average winning month percent",
+                "value": round(winning_months.mean() * 100, 2) if len(winning_months) > 0 else None,
+            },
+            {
+                "metric": "Average losing month percent",
+                "value": round(losing_months.mean() * 100, 2) if len(losing_months) > 0 else None,
+            },
+            {
+                "metric": "Best month percent",
+                "value": round(returns.max() * 100, 2),
+            },
+            {
+                "metric": "Worst month percent",
+                "value": round(returns.min() * 100, 2),
+            },
+            {
+                "metric": "Monthly volatility percent",
+                "value": round(returns.std() * 100, 2),
+            },
+            {
+                "metric": "Profit loss ratio",
+                "value": round(
+                    winning_months.mean() / abs(losing_months.mean()), 2
+                ) if len(winning_months) > 0 and len(losing_months) > 0 else None,
+            },
+        ]
+    )
+
+    return stats.to_markdown(index=False)
 
 def generate_readme(top_n=20):
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
@@ -60,8 +132,10 @@ def generate_readme(top_n=20):
     if backtest_returns is not None:
         backtest_returns_table = format_percent_columns(backtest_returns)
         backtest_returns_markdown = backtest_returns_table.to_markdown(index=False)
+        monthly_statistics_markdown = summarize_monthly_return_statistics(backtest_returns)
     else:
         backtest_returns_markdown = "Backtest returns file not found."
+        monthly_statistics_markdown = "Backtest return statistics file not found."
 
     readme_parts = [
         "# Nasdaq-100 Six-Month Mean Momentum Strategy",
@@ -116,6 +190,14 @@ def generate_readme(top_n=20):
         "The following table shows the summary statistics of the monthly mean momentum backtest.",
         "",
         summary_markdown,
+        "",
+        "---",
+        "",
+        "## Backtest Monthly Return Statistics",
+        "",
+        "The following table summarizes the distribution of monthly strategy returns.",
+        "",
+        monthly_statistics_markdown,
         "",
         "---",
         "",
