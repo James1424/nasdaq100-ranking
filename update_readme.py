@@ -58,16 +58,10 @@ def generate_readme(top_n=20):
         summary_markdown = "Backtest summary file not found."
 
     if backtest_returns is not None:
-        latest_returns_table = format_percent_columns(backtest_returns.tail(12))
+        latest_returns_table = format_percent_columns(backtest_returns)
         latest_returns_markdown = latest_returns_table.to_markdown(index=False)
     else:
         latest_returns_markdown = "Backtest returns file not found."
-
-    if backtest_holdings is not None:
-        latest_holdings_table = backtest_holdings.tail(12)
-        latest_holdings_markdown = latest_holdings_table.to_markdown(index=False)
-    else:
-        latest_holdings_markdown = "Backtest holdings file not found."
 
     readme_parts = [
         "# Nasdaq-100 Six-Month Mean Momentum Strategy",
