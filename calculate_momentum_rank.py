@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 
 from stock_database import (
@@ -12,10 +13,6 @@ pd.set_option("display.width", 2000)
 
 
 def calculate_six_month_momentum(price_data):
-    """
-    计算每只股票在数据库区间内的六个月 momentum。
-    这里使用 adj_close，也就是复权收盘价。
-    """
     results = []
 
     for ticker, df in price_data.groupby("Ticker"):
@@ -58,13 +55,16 @@ def calculate_six_month_momentum(price_data):
 
 
 if __name__ == "__main__":
+    os.makedirs("data", exist_ok=True)
+
     end_date = pd.Timestamp.today().normalize()
     start_date = end_date - pd.DateOffset(months=6)
 
     start_date_str = start_date.strftime("%Y-%m-%d")
     end_date_str = end_date.strftime("%Y-%m-%d")
 
-    db_path = "nasdaq100_last_6_months.sqlite"
+    db_path = "data/nasdaq100_last_6_months.sqlite"
+    output_path = "data/nasdaq100_six_month_momentum_rank.csv"
 
     print("Getting Nasdaq-100 tickers...")
     tickers = get_nasdaq100_tickers()
@@ -86,10 +86,10 @@ if __name__ == "__main__":
     print("\nCalculating six-month momentum rank...")
     rank = calculate_six_month_momentum(price_data)
 
-    rank.to_csv("nasdaq100_six_month_momentum_rank.csv", index=False)
+    rank.to_csv(output_path, index=False)
 
     print("\nTop 20 Nasdaq-100 stocks by six-month momentum:")
     print(rank.head(20).to_string(index=False))
 
     print("\nMomentum rank saved to:")
-    print("nasdaq100_six_month_momentum_rank.csv")
+    print(output_path)
