@@ -8,11 +8,13 @@ from stock_database import get_nasdaq100_tickers
 # Configuration
 # ============================================================
 
-# 用更早的数据做 warm-up，用来计算 6 个月动量和 10 个月市场均线
+# Earlier data only used for warm-up:
+# - 6-month momentum
+# - 10-month market trend filter
 DATA_START_DATE = "2014-01-01"
 
-# 真正开始计算收益的日期
-# 2016-02-01 是美股交易日，因此第一期可以严格从 2016-02-01 开始
+# Real backtest start date.
+# 2016-02-01 is a trading day, so the first holding period starts exactly here.
 BACKTEST_START_DATE = "2016-02-01"
 
 END_DATE = "2026-12-31"
@@ -63,6 +65,9 @@ def download_adjusted_close(tickers, start_date, end_date):
     price_df = pd.DataFrame(prices)
     price_df = price_df.dropna(axis=1, how="all")
     price_df = price_df.ffill()
+
+    if price_df.empty:
+        raise ValueError("No stock price data downloaded.")
 
     return price_df
 
@@ -158,17 +163,19 @@ def build_common_holding_periods(price_df):
     """
     Build one shared monthly holding-period table.
 
-    Both the normal backtest and the market-regime backtest must use this
-    exact same table. This guarantees identical holding_start and holding_end.
+    Both the normal backtest and the market-regime backtest use this exact
+    same table. This guarantees identical holding_start and holding_end.
 
-    Example first period:
-        holding_start = 2016-02-01
-        holding_end   = 2016-02-29
-        ranking_date  = 2016-01-29
+    signal_date:
+        Calendar month-end.
+        Used to look up monthly momentum score and market regime.
 
-    ranking_date means:
-        Use information available at the previous month-end to decide
-        the portfolio for the next month.
+    ranking_date:
+        Last real trading day on or before signal_date.
+        Used only for display.
+
+    holding_start / holding_end:
+        Real trading dates used for return calculation.
     """
 
     backtest_start = pd.Timestamp(BACKTEST_START_DATE)
@@ -176,7 +183,7 @@ def build_common_holding_periods(price_df):
     monthly_periods = pd.period_range(
         start=backtest_start,
         end=price_df.index.max(),
-        freq="M"
+        freq="M",
     )
 
     holding_periods = []
@@ -196,10 +203,11 @@ def build_common_holding_periods(price_df):
         holding_start = month_trading_dates[0]
         holding_end = month_trading_dates[-1]
 
-        previous_month_end = calendar_start - pd.offsets.MonthEnd(1)
+        previous_month_period = period - 1
+        signal_date = previous_month_period.end_time.normalize()
 
         ranking_candidates = price_df.index[
-            price_df.index <= previous_month_end
+            price_df.index <= signal_date
         ]
 
         if len(ranking_candidates) == 0:
@@ -209,6 +217,7 @@ def build_common_holding_periods(price_df):
 
         holding_periods.append(
             {
+                "signal_date": signal_date,
                 "ranking_date": ranking_date,
                 "holding_start": holding_start,
                 "holding_end": holding_end,
@@ -233,18 +242,25 @@ def run_backtest(price_df, holding_periods):
     holdings_records = []
 
     for period in holding_periods:
+        signal_date = period["signal_date"]
         ranking_date = period["ranking_date"]
         holding_start = period["holding_start"]
         holding_end = period["holding_end"]
 
-        if ranking_date not in momentum_score.index:
-            continue
+        if signal_date not in momentum_score.index:
+            raise ValueError(
+                f"Missing momentum score for signal date {signal_date}. "
+                f"Check monthly resampling."
+            )
 
-        scores = momentum_score.loc[ranking_date].dropna()
+        scores = momentum_score.loc[signal_date].dropna()
         selected = scores.sort_values(ascending=False).head(TOP_N).index.tolist()
 
         if len(selected) == 0:
-            continue
+            raise ValueError(
+                f"No selected stocks for signal date {signal_date}. "
+                f"Use an earlier DATA_START_DATE or check stock data."
+            )
 
         start_prices = price_df.loc[holding_start, selected]
         end_prices = price_df.loc[holding_end, selected]
@@ -253,13 +269,17 @@ def run_backtest(price_df, holding_periods):
         stock_returns = stock_returns.dropna()
 
         if len(stock_returns) == 0:
-            continue
+            raise ValueError(
+                f"No valid stock returns from {holding_start} to {holding_end}. "
+                f"Selected stocks: {selected}"
+            )
 
         portfolio_return = stock_returns.mean()
         actual_selected = stock_returns.index.tolist()
 
         portfolio_records.append(
             {
+                "signal_date": signal_date.strftime("%Y-%m-%d"),
                 "ranking_date": ranking_date.strftime("%Y-%m-%d"),
                 "selected_stocks": ",".join(actual_selected),
                 "holding_start": holding_start.strftime("%Y-%m-%d"),
@@ -271,6 +291,7 @@ def run_backtest(price_df, holding_periods):
 
         holdings_records.append(
             {
+                "signal_date": signal_date.strftime("%Y-%m-%d"),
                 "ranking_date": ranking_date.strftime("%Y-%m-%d"),
                 "holding_start": holding_start.strftime("%Y-%m-%d"),
                 "holding_end": holding_end.strftime("%Y-%m-%d"),
@@ -305,34 +326,39 @@ def run_market_regime_backtest(price_df, market_index_prices, holding_periods):
     portfolio_records = []
 
     for period in holding_periods:
+        signal_date = period["signal_date"]
         ranking_date = period["ranking_date"]
         holding_start = period["holding_start"]
         holding_end = period["holding_end"]
 
-        if ranking_date not in momentum_score.index:
-            continue
-
-        if ranking_date not in market_regime.index:
+        if signal_date not in momentum_score.index:
             raise ValueError(
-                f"Missing market regime data for ranking date {ranking_date}."
+                f"Missing momentum score for signal date {signal_date}."
             )
 
-        regime_row = market_regime.loc[ranking_date]
+        if signal_date not in market_regime.index:
+            raise ValueError(
+                f"Missing market regime data for signal date {signal_date}."
+            )
+
+        regime_row = market_regime.loc[signal_date]
 
         if pd.isna(regime_row["market_index_ma"]):
             raise ValueError(
-                f"Market regime moving average is missing for {ranking_date}. "
+                f"Market regime moving average is missing for {signal_date}. "
                 f"Use an earlier DATA_START_DATE."
             )
 
         is_bull_market = bool(regime_row["is_bull_market"])
         market_regime_label = regime_row["market_regime"]
 
-        scores = momentum_score.loc[ranking_date].dropna()
+        scores = momentum_score.loc[signal_date].dropna()
         selected = scores.sort_values(ascending=False).head(TOP_N).index.tolist()
 
         if len(selected) == 0:
-            continue
+            raise ValueError(
+                f"No selected stocks for signal date {signal_date}."
+            )
 
         if is_bull_market:
             start_prices = price_df.loc[holding_start, selected]
@@ -342,7 +368,10 @@ def run_market_regime_backtest(price_df, market_index_prices, holding_periods):
             stock_returns = stock_returns.dropna()
 
             if len(stock_returns) == 0:
-                continue
+                raise ValueError(
+                    f"No valid stock returns from {holding_start} to {holding_end}. "
+                    f"Selected stocks: {selected}"
+                )
 
             portfolio_return = stock_returns.mean()
             selected_stocks = ",".join(stock_returns.index.tolist())
@@ -353,6 +382,7 @@ def run_market_regime_backtest(price_df, market_index_prices, holding_periods):
 
         portfolio_records.append(
             {
+                "signal_date": signal_date.strftime("%Y-%m-%d"),
                 "ranking_date": ranking_date.strftime("%Y-%m-%d"),
                 "market_regime": market_regime_label,
                 "is_bull_market": is_bull_market,
@@ -533,7 +563,7 @@ def validate_identical_holding_periods(returns_df, regime_returns_df):
                 normal_periods.add_prefix("normal_"),
                 regime_periods.add_prefix("regime_"),
             ],
-            axis=1
+            axis=1,
         )
 
         mismatch = comparison[
@@ -550,6 +580,29 @@ def validate_identical_holding_periods(returns_df, regime_returns_df):
     print("Common start:", returns_df["holding_start"].iloc[0])
     print("Common end:", returns_df["holding_end"].iloc[-1])
     print("Number of months:", len(returns_df))
+
+
+def validate_no_missing_months(returns_df):
+    periods = pd.PeriodIndex(
+        pd.to_datetime(returns_df["holding_start"]),
+        freq="M",
+    )
+
+    expected_periods = pd.period_range(
+        start=periods.min(),
+        end=periods.max(),
+        freq="M",
+    )
+
+    missing_periods = expected_periods.difference(periods)
+
+    if len(missing_periods) > 0:
+        raise ValueError(
+            "There are missing monthly holding periods: "
+            + ", ".join(str(p) for p in missing_periods)
+        )
+
+    print("No missing monthly holding periods.")
 
 
 # ============================================================
@@ -581,15 +634,21 @@ if __name__ == "__main__":
     print("\nFirst 5 common holding periods:")
     for period in holding_periods[:5]:
         print(
+            "signal:",
+            period["signal_date"].strftime("%Y-%m-%d"),
+            "| ranking:",
             period["ranking_date"].strftime("%Y-%m-%d"),
             "->",
             period["holding_start"].strftime("%Y-%m-%d"),
             "to",
-            period["holding_end"].strftime("%Y-%m-%d")
+            period["holding_end"].strftime("%Y-%m-%d"),
         )
 
     print("\nRunning six-month mean momentum backtest without market regime filter...")
-    returns_df, holdings_df = run_backtest(price_df, holding_periods)
+    returns_df, holdings_df = run_backtest(
+        price_df=price_df,
+        holding_periods=holding_periods,
+    )
 
     print("\nRunning six-month mean momentum backtest with market regime filter...")
     regime_returns_df = run_market_regime_backtest(
@@ -599,6 +658,8 @@ if __name__ == "__main__":
     )
 
     validate_identical_holding_periods(returns_df, regime_returns_df)
+    validate_no_missing_months(returns_df)
+    validate_no_missing_months(regime_returns_df)
 
     print("\nSummarizing original backtest...")
     summary_df = summarize_backtest(returns_df)
@@ -618,6 +679,12 @@ if __name__ == "__main__":
 
     print("\nMarket regime backtest first rows:")
     print(regime_returns_df.head().to_string(index=False))
+
+    print("\nOriginal backtest last rows:")
+    print(returns_df.tail().to_string(index=False))
+
+    print("\nMarket regime backtest last rows:")
+    print(regime_returns_df.tail().to_string(index=False))
 
     print("\nOriginal backtest summary:")
     print(summary_df.to_string(index=False))
