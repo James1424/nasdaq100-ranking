@@ -55,7 +55,6 @@ def calculate_six_month_momentum(price_data):
 
 
 if __name__ == "__main__":
-    os.makedirs("data", exist_ok=True)
 
     end_date = pd.Timestamp.today().normalize()
     start_date = end_date - pd.DateOffset(months=6)
@@ -63,8 +62,8 @@ if __name__ == "__main__":
     start_date_str = start_date.strftime("%Y-%m-%d")
     end_date_str = end_date.strftime("%Y-%m-%d")
 
-    db_path = "data/nasdaq100_last_6_months.sqlite"
-    output_path = "data/nasdaq100_six_month_momentum_rank.csv"
+    db_path = "nasdaq100_last_6_months.sqlite"
+    output_path = "nasdaq100_six_month_momentum_rank.csv"
 
     print("Getting Nasdaq-100 tickers...")
     tickers = get_nasdaq100_tickers()
