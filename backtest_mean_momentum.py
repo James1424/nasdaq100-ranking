@@ -58,14 +58,25 @@ def download_market_index(ticker, start_date, end_date):
     )
 
     if data.empty:
-        return pd.Series(dtype=float)
+        raise ValueError(f"No market index data downloaded for {ticker}.")
 
     if isinstance(data.columns, pd.MultiIndex):
-        close = data[ticker]["Close"]
+        if "Close" in data.columns.get_level_values(0):
+            close = data["Close"]
+            if isinstance(close, pd.DataFrame):
+                close = close.iloc[:, 0]
+        elif ticker in data.columns.get_level_values(0):
+            close = data[ticker]["Close"]
+        else:
+            raise KeyError(f"Could not find Close price for {ticker}. Columns: {data.columns}")
     else:
+        if "Close" not in data.columns:
+            raise KeyError(f"Close column not found for {ticker}. Columns: {data.columns}")
         close = data["Close"]
 
     close = close.dropna()
+    close.name = ticker
+
     return close
 
 def calculate_six_month_mean_momentum(monthly_prices):
