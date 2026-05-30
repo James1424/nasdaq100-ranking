@@ -1,85 +1,99 @@
 from datetime import datetime, timezone
+import os
 
 import pandas as pd
 
 
-CSV_PATH = "nasdaq100_six_month_momentum_rank.csv"
+LATEST_RANK_FILE = "nasdaq100_six_month_momentum_rank.csv"
+BACKTEST_SUMMARY_FILE = "nasdaq100_mean_momentum_backtest_summary.csv"
+BACKTEST_RETURNS_FILE = "nasdaq100_mean_momentum_backtest_returns.csv"
+BACKTEST_HOLDINGS_FILE = "nasdaq100_mean_momentum_backtest_holdings.csv"
 README_PATH = "README.md"
 
 
+def load_table(path):
+    if not os.path.exists(path):
+        return None
+    return pd.read_csv(path)
+
+
+def format_percent_columns(df):
+    df = df.copy()
+
+    for col in df.columns:
+        if "percent" in col.lower():
+            df[col] = df[col].round(2)
+
+    for col in df.columns:
+        if "return" in col.lower() and "percent" not in col.lower():
+            if pd.api.types.is_numeric_dtype(df[col]):
+                df[col] = df[col].round(4)
+
+    for col in df.columns:
+        if "price" in col.lower():
+            if pd.api.types.is_numeric_dtype(df[col]):
+                df[col] = df[col].round(2)
+
+    return df
+
+
 def generate_readme(top_n=20):
-    rank = pd.read_csv(CSV_PATH)
-
-    top_rank = rank.head(top_n).copy()
-
-    top_rank["six_month_momentum_percent"] = top_rank[
-        "six_month_momentum_percent"
-    ].round(2)
-
-    top_rank["start_price"] = top_rank["start_price"].round(2)
-    top_rank["end_price"] = top_rank["end_price"].round(2)
-
-    table = top_rank[
-        [
-            "rank",
-            "Ticker",
-            "start_date",
-            "end_date",
-            "start_price",
-            "end_price",
-            "six_month_momentum_percent",
-            "trading_days",
-        ]
-    ].to_markdown(index=False)
-
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
-    readme_lines = [
-        "# Nasdaq-100 Six-Month Momentum Ranking",
-        "",
-        "This repository automatically calculates the six-month momentum ranking of Nasdaq-100 stocks.",
-        "",
-        "The ranking is based on adjusted closing prices over the most recent six-month period.",
-        "",
-        f"## Latest Top {top_n} Ranking",
-        "",
-        f"Last updated: **{now}**",
-        "",
-        table,
-        "",
-        "## Methodology",
-        "",
-        "For each stock, six-month momentum is calculated as:",
-        "",
-        "```text",
-        "six_month_momentum = last_adjusted_close / first_adjusted_close - 1",
-        "```",
-        "",
-        "The stocks are then sorted from highest momentum to lowest momentum.",
-        "",
-        "## Output File",
-        "",
-        "The full ranking is saved in:",
-        "",
-        "```text",
-        CSV_PATH,
-        "```",
-        "",
-        "## Notes",
-        "",
-        "- Price data is downloaded using `yfinance`.",
-        "- Momentum is calculated using adjusted close prices.",
-        "- The ranking is updated by GitHub Actions.",
-        "- This project is for research and educational purposes only.",
-        "- This project does not provide financial advice.",
-        "",
-    ]
+    latest_rank = load_table(LATEST_RANK_FILE)
+    backtest_summary = load_table(BACKTEST_SUMMARY_FILE)
+    backtest_returns = load_table(BACKTEST_RETURNS_FILE)
+    backtest_holdings = load_table(BACKTEST_HOLDINGS_FILE)
 
-    readme = "\n".join(readme_lines)
+    if latest_rank is not None:
+        latest_rank_table = format_percent_columns(latest_rank.head(top_n))
+        latest_rank_markdown = latest_rank_table.to_markdown(index=False)
+    else:
+        latest_rank_markdown = "Latest ranking file not found."
 
-    with open(README_PATH, "w", encoding="utf-8") as f:
-        f.write(readme)
+    if backtest_summary is not None:
+        summary_table = format_percent_columns(backtest_summary)
+        summary_markdown = summary_table.to_markdown(index=False)
+    else:
+        summary_markdown = "Backtest summary file not found."
 
+    if backtest_returns is not None:
+        latest_returns_table = format_percent_columns(backtest_returns.tail(12))
+        latest_returns_markdown = latest_returns_table.to_markdown(index=False)
+    else:
+        latest_returns_markdown = "Backtest returns file not found."
 
-if __name__ == "__main__":
-    generate_readme(top_n=20)
+    if backtest_holdings is not None:
+        latest_holdings_table = backtest_holdings.tail(12)
+        latest_holdings_markdown = latest_holdings_table.to_markdown(index=False)
+    else:
+        latest_holdings_markdown = "Backtest holdings file not found."
+
+    readme = f"""# Nasdaq-100 Six-Month Mean Momentum Strategy
+
+This repository builds a rule-based momentum ranking and backtesting system for Nasdaq-100 stocks.
+
+The core idea is simple:
+
+> Every month, rank Nasdaq-100 stocks by their average monthly return over the past six months, buy the top three, and rebalance next month.
+
+In Chinese, I call this signal:
+
+**六月均值动量**
+
+Last updated: **{now}**
+
+---
+
+## Latest Nasdaq-100 Six-Month Momentum Ranking
+
+The following table shows the latest Nasdaq-100 momentum ranking up to the most recent available trading date.
+
+Top {top_n} stocks are shown below.
+
+{latest_rank_markdown}
+
+The full ranking is saved in:
+
+```text
+{LATEST_RANK_FILE}
