@@ -173,42 +173,6 @@ def build_strategy_comparison_table(original_summary, regime_summary):
     return comparison.to_markdown(index=False)
 
 
-def build_bull_market_months_table(regime_returns):
-    if regime_returns is None or len(regime_returns) == 0:
-        return "Market regime backtest file not found."
-
-    if "is_bull_market" not in regime_returns.columns:
-        return "Column `is_bull_market` not found in market regime backtest file."
-
-    is_bull = regime_returns["is_bull_market"].astype(str).str.lower().isin(
-        ["true", "1", "yes"]
-    )
-
-    bull_df = regime_returns[is_bull].copy()
-
-    if len(bull_df) == 0:
-        return "No bull-market months found."
-
-    preferred_columns = [
-        "ranking_date",
-        "market_regime",
-        "trade_executed",
-        "market_index_price",
-        "market_index_ma",
-        "selected_stocks",
-        "holding_start",
-        "holding_end",
-        "portfolio_return_percent",
-        "cumulative_return_percent",
-    ]
-
-    existing_columns = [col for col in preferred_columns if col in bull_df.columns]
-    bull_df = bull_df[existing_columns]
-    bull_df = format_percent_columns(bull_df)
-
-    return bull_df.to_markdown(index=False)
-
-
 def generate_readme(top_n=20):
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
@@ -254,13 +218,9 @@ def generate_readme(top_n=20):
         regime_statistics_markdown = summarize_monthly_return_statistics(
             regime_returns
         )
-        bull_market_months_markdown = build_bull_market_months_table(
-            regime_returns
-        )
     else:
         regime_returns_markdown = "Market regime returns file not found."
         regime_statistics_markdown = "Market regime return statistics file not found."
-        bull_market_months_markdown = "Bull-market months table not found."
 
     strategy_comparison_markdown = build_strategy_comparison_table(
         backtest_summary,
@@ -390,14 +350,6 @@ def generate_readme(top_n=20):
         "The following table summarizes the distribution of monthly strategy returns after applying the market regime filter.",
         "",
         regime_statistics_markdown,
-        "",
-        "---",
-        "",
-        "## Bull Market Months",
-        "",
-        "The following table lists all months classified as bull-market months by the Nasdaq market regime filter.",
-        "",
-        bull_market_months_markdown,
         "",
         "---",
         "",
