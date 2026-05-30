@@ -1,2 +1,2 @@
 strategy_name,start_date,end_date,lookback_months,top_n,total_return_percent,annualized_return_percent,annualized_volatility_percent,sharpe_ratio_without_risk_free_rate,max_drawdown_percent,win_rate_percent,number_of_months
-Nasdaq-100 Top 3 Six-Month Mean Momentum,2016-07-31,2026-05-31,6,3,75610.15511505547,96.24352483369769,50.36579877829097,1.9108904686960166,-29.15431999776593,61.86440677966102,118
+Nasdaq-100 Top 3 Six-Month Mean Momentum,2016-07-31,2026-05-31,6,3,75610.17986186061,96.24353135687997,50.36579849434823,1.9108906089849818,-29.15430682934892,61.86440677966102,118
