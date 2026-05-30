@@ -243,7 +243,6 @@ def run_market_regime_backtest(price_df, market_index_prices):
                 "ranking_date": ranking_date.strftime("%Y-%m-%d"),
                 "market_regime": market_regime_label,
                 "is_bull_market": is_bull_market,
-                "trade_executed": trade_executed,
                 "market_index_price": regime_row["market_index_price"],
                 "market_index_ma": regime_row["market_index_ma"],
                 "selected_stocks": selected_stocks,
