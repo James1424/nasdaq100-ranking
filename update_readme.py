@@ -22,7 +22,8 @@ def format_percent_columns(df):
 
     for col in df.columns:
         if "percent" in col.lower():
-            df[col] = df[col].round(2)
+            if pd.api.types.is_numeric_dtype(df[col]):
+                df[col] = df[col].round(2)
 
     for col in df.columns:
         if "return" in col.lower() and "percent" not in col.lower():
@@ -43,7 +44,6 @@ def generate_readme(top_n=20):
     latest_rank = load_table(LATEST_RANK_FILE)
     backtest_summary = load_table(BACKTEST_SUMMARY_FILE)
     backtest_returns = load_table(BACKTEST_RETURNS_FILE)
-    backtest_holdings = load_table(BACKTEST_HOLDINGS_FILE)
 
     if latest_rank is not None:
         latest_rank_table = format_percent_columns(latest_rank.head(top_n))
@@ -58,10 +58,10 @@ def generate_readme(top_n=20):
         summary_markdown = "Backtest summary file not found."
 
     if backtest_returns is not None:
-        latest_returns_table = format_percent_columns(backtest_returns)
-        latest_returns_markdown = latest_returns_table.to_markdown(index=False)
+        backtest_returns_table = format_percent_columns(backtest_returns)
+        backtest_returns_markdown = backtest_returns_table.to_markdown(index=False)
     else:
-        latest_returns_markdown = "Backtest returns file not found."
+        backtest_returns_markdown = "Backtest returns file not found."
 
     readme_parts = [
         "# Nasdaq-100 Six-Month Mean Momentum Strategy",
@@ -70,7 +70,7 @@ def generate_readme(top_n=20):
         "",
         "The core idea is simple:",
         "",
-        "> Every month, rank Nasdaq-100 stocks by their average monthly return over the past six months, buy the top three, and rebalance next month.",
+        "> At the beginning of each month, rank Nasdaq-100 stocks by their average monthly return over the previous six months, buy the top three stocks, and hold them for the following month.",
         "",
         "In Chinese, I call this signal:",
         "",
@@ -104,11 +104,11 @@ def generate_readme(top_n=20):
         "",
         "---",
         "",
-        "## Recent Monthly Backtest Returns",
+        "## Full Monthly Backtest Returns",
         "",
-        "The following table shows the most recent monthly strategy returns.",
+        "The following table shows the full monthly strategy return history.",
         "",
-        latest_returns_markdown,
+        backtest_returns_markdown,
         "",
         "The full monthly return history is saved in:",
         "",
@@ -118,30 +118,16 @@ def generate_readme(top_n=20):
         "",
         "---",
         "",
-        "## Recent Monthly Holdings",
-        "",
-        "The following table shows the most recent monthly holdings selected by the strategy.",
-        "",
-        latest_holdings_markdown,
-        "",
-        "The full holding history is saved in:",
-        "",
-        "```text",
-        BACKTEST_HOLDINGS_FILE,
-        "```",
-        "",
-        "---",
-        "",
         "## Strategy Logic",
         "",
-        "For each stock in the Nasdaq-100 universe:",
+        "At the beginning of each month:",
         "",
-        "1. Download adjusted historical price data.",
-        "2. Resample prices to monthly frequency.",
-        "3. Compute monthly returns.",
-        "4. Calculate the average return over the past six months.",
-        "5. Rank all stocks by this six-month mean momentum signal.",
-        "6. Select the top three stocks.",
+        "1. Use only historical monthly returns from the previous six months.",
+        "2. Calculate the average monthly return for each Nasdaq-100 stock over that six-month lookback window.",
+        "3. Rank all stocks by this six-month mean momentum signal.",
+        "4. Select the top three stocks.",
+        "5. Hold these stocks for the following month.",
+        "6. Use the next month's realized return to calculate strategy performance.",
         "7. Rebalance monthly.",
         "",
         "The strategy does not use news, analyst reports, valuation metrics, or discretionary stock picking.",
