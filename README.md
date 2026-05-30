@@ -1,6 +1,6 @@
 # Nasdaq-100 Six-Month Mean Momentum Strategy
 
-This repository builds a simple rule-based momentum ranking and backtesting system for Nasdaq-100 stocks.
+This repository builds a rule-based momentum ranking and backtesting system for Nasdaq-100 stocks.
 
 The core idea is simple:
 
@@ -10,294 +10,147 @@ In Chinese, I call this signal:
 
 **六月均值动量**
 
----
-
-## Core Idea
-
-This strategy does not rely on:
-
-- financial statement analysis
-- news interpretation
-- industry forecasting
-- K-line pattern reading
-- target prices
-- manual stop-loss rules
-- manual take-profit rules
-
-Instead, it follows one predefined ranking rule.
-
-For each Nasdaq-100 stock, calculate its monthly returns over the past six months:
-
-```text
-r1, r2, r3, r4, r5, r6
-```
-
-Then calculate the average:
-
-```text
-six_month_mean_momentum = (r1 + r2 + r3 + r4 + r5 + r6) / 6
-```
-
-Stocks are ranked from highest to lowest based on this value.
-
-The top three stocks enter the portfolio.
-
-If a stock remains in the top three next month, it stays.
-
-If it drops out of the top three, it is replaced.
+Last updated: **2026-05-30 01:59:50 UTC**
 
 ---
 
-## Strategy Rule
+## Latest Nasdaq-100 Six-Month Momentum Ranking
 
-The strategy follows this monthly process:
+The following table shows the latest Nasdaq-100 momentum ranking up to the most recent available trading date.
 
-```text
-1. At the end of each month, collect monthly adjusted closing prices.
-2. Calculate each stock's monthly returns over the past six months.
-3. Compute the average of those six monthly returns.
-4. Rank all Nasdaq-100 stocks by six-month mean momentum.
-5. Select the top three stocks.
-6. Hold the selected stocks with equal weights for one month.
-7. Repeat the process next month.
-```
+Top 20 stocks are shown below.
 
-The rule can be summarized as:
+|   rank | Ticker   | start_date   | end_date   |   start_price |   end_price |   six_month_momentum |   six_month_momentum_percent |   trading_days |
+|-------:|:---------|:-------------|:-----------|--------------:|------------:|---------------------:|-----------------------------:|---------------:|
+|      1 | SNDK     | 2025-12-01   | 2026-05-29 |        210.17 |     1694.98 |             7.0648   |                       706.48 |            124 |
+|      2 | MU       | 2025-12-01   | 2026-05-29 |        240.26 |      971    |             3.04142  |                       304.14 |            124 |
+|      3 | STX      | 2025-12-01   | 2026-05-29 |        268.92 |      879.8  |             2.27155  |                       227.16 |            124 |
+|      4 | WDC      | 2025-12-01   | 2026-05-29 |        163.33 |      531.21 |             2.25236  |                       225.24 |            124 |
+|      5 | INTC     | 2025-12-01   | 2026-05-29 |         40.01 |      114.68 |             1.86628  |                       186.63 |            124 |
+|      6 | LITE     | 2025-12-01   | 2026-05-29 |        317.93 |      854.96 |             1.68915  |                       168.91 |            124 |
+|      7 | ARM      | 2025-12-01   | 2026-05-29 |        135.01 |      353.29 |             1.61677  |                       161.68 |            124 |
+|      8 | AMD      | 2025-12-01   | 2026-05-29 |        219.76 |      516.1  |             1.34847  |                       134.85 |            124 |
+|      9 | MRVL     | 2025-12-01   | 2026-05-29 |         90.99 |      205    |             1.25302  |                       125.3  |            124 |
+|     10 | LRCX     | 2025-12-01   | 2026-05-29 |        154.35 |      318.18 |             1.06141  |                       106.14 |            124 |
+|     11 | TXN      | 2025-12-01   | 2026-05-29 |        166.22 |      305.68 |             0.838954 |                        83.9  |            124 |
+|     12 | MCHP     | 2025-12-01   | 2026-05-29 |         52.85 |       94.65 |             0.790851 |                        79.09 |            124 |
+|     13 | AMAT     | 2025-12-01   | 2026-05-29 |        254.12 |      450.06 |             0.771076 |                        77.11 |            124 |
+|     14 | MPWR     | 2025-12-01   | 2026-05-29 |        924.93 |     1566.21 |             0.693322 |                        69.33 |            124 |
+|     15 | FTNT     | 2025-12-01   | 2026-05-29 |         81.82 |      137.97 |             0.686263 |                        68.63 |            124 |
+|     16 | KLAC     | 2025-12-01   | 2026-05-29 |       1154.21 |     1921.71 |             0.664964 |                        66.5  |            124 |
+|     17 | NXPI     | 2025-12-01   | 2026-05-29 |        197.58 |      321.35 |             0.626449 |                        62.64 |            124 |
+|     18 | ODFL     | 2025-12-01   | 2026-05-29 |        139.2  |      225.15 |             0.617467 |                        61.75 |            124 |
+|     19 | CSCO     | 2025-12-01   | 2026-05-29 |         75.23 |      120.42 |             0.600741 |                        60.07 |            124 |
+|     20 | DDOG     | 2025-12-01   | 2026-05-29 |        157.9  |      247.35 |             0.566498 |                        56.65 |            124 |
 
-```text
-Rank decides everything.
-```
-
----
-
-## Backtest Setting
-
-The backtest is designed as follows:
-
-```text
-Universe: Nasdaq-100 stocks
-Signal: six-month mean momentum
-Lookback window: 6 months
-Selection: top 3 stocks
-Weighting: equal weight
-Rebalancing frequency: monthly
-Holding period: 1 month
-Backtest period: 2016-2026
-```
-
-The first six months are used to calculate the initial momentum signal, so the first investable portfolio starts only after enough monthly return history is available.
-
----
-
-## Output Files
-
-The project generates the following CSV files:
-
-```text
-nasdaq100_six_month_momentum_rank.csv
-nasdaq100_mean_momentum_backtest_returns.csv
-nasdaq100_mean_momentum_backtest_holdings.csv
-nasdaq100_mean_momentum_backtest_summary.csv
-```
-
----
-
-## Latest Ranking File
+The full ranking is saved in:
 
 ```text
 nasdaq100_six_month_momentum_rank.csv
 ```
 
-This file contains the latest Nasdaq-100 momentum ranking.
+---
 
-Typical columns include:
+## Backtest Summary
 
-| Column | Meaning |
-|---|---|
-| rank | Ranking position |
-| Ticker | Stock ticker |
-| start_date | Start date of the ranking window |
-| end_date | End date of the ranking window |
-| start_price | Adjusted closing price at the start date |
-| end_price | Adjusted closing price at the end date |
-| six_month_momentum | Six-month momentum value |
-| six_month_momentum_percent | Six-month momentum in percentage form |
-| trading_days | Number of trading days used |
+The following table shows the summary statistics of the monthly mean momentum backtest.
+
+| strategy_name                            | start_date   | end_date   |   lookback_months |   top_n |   total_return_percent |   annualized_return_percent |   annualized_volatility_percent |   sharpe_ratio_without_risk_free_rate |   max_drawdown_percent |   win_rate_percent |   number_of_months |
+|:-----------------------------------------|:-------------|:-----------|------------------:|--------:|-----------------------:|----------------------------:|--------------------------------:|--------------------------------------:|-----------------------:|-------------------:|-------------------:|
+| Nasdaq-100 Top 3 Six-Month Mean Momentum | 2016-07-31   | 2026-05-31 |                 6 |       3 |                75610.2 |                       96.24 |                           50.37 |                               1.91089 |                 -29.15 |              61.86 |                118 |
 
 ---
 
-## Backtest Returns File
+## Recent Monthly Backtest Returns
+
+The following table shows the most recent monthly strategy returns.
+
+| ranking_date   | holding_start   | holding_end   |   portfolio_return |   portfolio_return_percent |   number_of_stocks |   cumulative_return |   cumulative_return_percent |
+|:---------------|:----------------|:--------------|-------------------:|---------------------------:|-------------------:|--------------------:|----------------------------:|
+| 2025-05-31     | 2025-05-31      | 2025-06-30    |             0.0854 |                       8.54 |                  3 |             84.0043 |                     8400.43 |
+| 2025-06-30     | 2025-06-30      | 2025-07-31    |             0.053  |                       5.3  |                  3 |             88.5112 |                     8851.12 |
+| 2025-07-31     | 2025-07-31      | 2025-08-31    |             0.0256 |                       2.56 |                  3 |             90.8023 |                     9080.23 |
+| 2025-08-31     | 2025-08-31      | 2025-09-30    |             0.1368 |                      13.68 |                  3 |            103.362  |                    10336.2  |
+| 2025-09-30     | 2025-09-30      | 2025-10-31    |             0.3049 |                      30.49 |                  3 |            135.181  |                    13518.1  |
+| 2025-10-31     | 2025-10-31      | 2025-11-30    |             0.2736 |                      27.36 |                  3 |            172.436  |                    17243.6  |
+| 2025-11-30     | 2025-11-30      | 2025-12-31    |             0.0841 |                       8.41 |                  3 |            187.022  |                    18702.2  |
+| 2025-12-31     | 2025-12-31      | 2026-01-31    |             0.6477 |                      64.77 |                  3 |            308.808  |                    30880.8  |
+| 2026-01-31     | 2026-01-31      | 2026-02-28    |             0.2951 |                      29.51 |                  3 |            400.232  |                    40023.2  |
+| 2026-02-28     | 2026-02-28      | 2026-03-31    |            -0.01   |                      -1    |                  3 |            396.239  |                    39623.9  |
+| 2026-03-31     | 2026-03-31      | 2026-04-30    |             0.5387 |                      53.87 |                  3 |            610.251  |                    61025.1  |
+| 2026-04-30     | 2026-04-30      | 2026-05-31    |             0.2386 |                      23.86 |                  3 |            756.102  |                    75610.2  |
+
+The full monthly return history is saved in:
 
 ```text
 nasdaq100_mean_momentum_backtest_returns.csv
 ```
 
-This file records the monthly portfolio return and cumulative return.
-
-Typical columns include:
-
-| Column | Meaning |
-|---|---|
-| ranking_date | Date when the ranking is calculated |
-| holding_start | Start date of the holding period |
-| holding_end | End date of the holding period |
-| portfolio_return | Monthly portfolio return |
-| portfolio_return_percent | Monthly portfolio return in percentage form |
-| number_of_stocks | Number of stocks actually held |
-| cumulative_return | Cumulative return |
-| cumulative_return_percent | Cumulative return in percentage form |
-
 ---
 
-## Backtest Holdings File
+## Recent Monthly Holdings
+
+The following table shows the most recent monthly holdings selected by the strategy.
+
+| ranking_date   | holding_start   | holding_end   | selected_stocks   |
+|:---------------|:----------------|:--------------|:------------------|
+| 2025-05-31     | 2025-05-31      | 2025-06-30    | PLTR,AVGO,CRWD    |
+| 2025-06-30     | 2025-06-30      | 2025-07-31    | PLTR,STX,ZS       |
+| 2025-07-31     | 2025-07-31      | 2025-08-31    | PLTR,STX,WDC      |
+| 2025-08-31     | 2025-08-31      | 2025-09-30    | LITE,PLTR,ALNY    |
+| 2025-09-30     | 2025-09-30      | 2025-10-31    | SNDK,WDC,APP      |
+| 2025-10-31     | 2025-10-31      | 2025-11-30    | SNDK,WDC,LITE     |
+| 2025-11-30     | 2025-11-30      | 2025-12-31    | SNDK,LITE,WDC     |
+| 2025-12-31     | 2025-12-31      | 2026-01-31    | SNDK,LITE,WDC     |
+| 2026-01-31     | 2026-01-31      | 2026-02-28    | SNDK,MU,LITE      |
+| 2026-02-28     | 2026-02-28      | 2026-03-31    | SNDK,LITE,WDC     |
+| 2026-03-31     | 2026-03-31      | 2026-04-30    | SNDK,LITE,WDC     |
+| 2026-04-30     | 2026-04-30      | 2026-05-31    | SNDK,LITE,WDC     |
+
+The full holding history is saved in:
 
 ```text
 nasdaq100_mean_momentum_backtest_holdings.csv
 ```
 
-This file records the selected stocks at each monthly rebalance.
+---
 
-Typical columns include:
+## Strategy Logic
 
-| Column | Meaning |
+For each stock in the Nasdaq-100 universe:
+
+1. Download adjusted historical price data.
+2. Resample prices to monthly frequency.
+3. Compute monthly returns.
+4. Calculate the average return over the past six months.
+5. Rank all stocks by this six-month mean momentum signal.
+6. Select the top three stocks.
+7. Rebalance monthly.
+
+The strategy does not use news, analyst reports, valuation metrics, or discretionary stock picking.
+
+It is a simple rule-based momentum strategy.
+
+---
+
+## Files
+
+| File | Description |
 |---|---|
-| ranking_date | Date when the ranking is calculated |
-| holding_start | Start date of the holding period |
-| holding_end | End date of the holding period |
-| selected_stocks | Stocks selected by the strategy |
-
----
-
-## Backtest Summary File
-
-```text
-nasdaq100_mean_momentum_backtest_summary.csv
-```
-
-This file summarizes the strategy performance.
-
-Typical columns include:
-
-| Column | Meaning |
-|---|---|
-| strategy_name | Name of the strategy |
-| start_date | First holding period start date |
-| end_date | Last holding period end date |
-| lookback_months | Number of months used for momentum calculation |
-| top_n | Number of selected stocks |
-| total_return_percent | Total return over the full backtest |
-| annualized_return_percent | Annualized return |
-| annualized_volatility_percent | Annualized volatility |
-| sharpe_ratio_without_risk_free_rate | Sharpe ratio without risk-free rate adjustment |
-| max_drawdown_percent | Maximum drawdown |
-| win_rate_percent | Percentage of positive-return months |
-| number_of_months | Number of monthly holding periods |
-
----
-
-## How to Run Locally
-
-Install dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
-Run the latest ranking script:
-
-```bash
-python calculate_momentum_rank.py
-```
-
-Run the six-month mean momentum backtest:
-
-```bash
-python backtest_mean_momentum.py
-```
-
-After running the scripts, the CSV result files will be saved in the project root directory.
-
----
-
-## Online Update with GitHub Actions
-
-This repository can be updated online using GitHub Actions.
-
-To run the workflow manually:
-
-```text
-Actions → Run Nasdaq100 Momentum Ranking → Run workflow
-```
-
-After the workflow finishes successfully, the ranking and backtest CSV files will be updated in the repository.
-
----
-
-## Project Structure
-
-```text
-nasdaq100-ranking/
-├── calculate_momentum_rank.py
-├── backtest_mean_momentum.py
-├── stock_database.py
-├── update_readme.py
-├── requirements.txt
-├── README.md
-├── nasdaq100_six_month_momentum_rank.csv
-├── nasdaq100_mean_momentum_backtest_returns.csv
-├── nasdaq100_mean_momentum_backtest_holdings.csv
-├── nasdaq100_mean_momentum_backtest_summary.csv
-└── .github/
-    └── workflows/
-        └── run-ranking.yml
-```
-
----
-
-## Data Source
-
-Stock price data is downloaded using `yfinance`.
-
-The strategy uses adjusted closing prices, which account for stock splits and dividends when available.
-
----
-
-## Important Limitation
-
-This backtest currently uses the available Nasdaq-100 stock universe from the data source.
-
-This may introduce **survivorship bias**.
-
-Survivorship bias means that the backtest may use today's successful Nasdaq-100 companies to test historical periods, while ignoring companies that were previously in the index but later removed.
-
-As a result, the historical performance may look better than what a real investor could have achieved at the time.
-
-A more rigorous version should use historical Nasdaq-100 constituent data for each month.
-
----
-
-## Future Improvements
-
-Possible future improvements include:
-
-- adding historical Nasdaq-100 constituent data
-- comparing the strategy with QQQ
-- adding transaction costs
-- adding slippage assumptions
-- adding turnover statistics
-- adding risk-free-rate-adjusted Sharpe ratio
-- adding maximum drawdown charts
-- adding cumulative return charts
-- extending the framework to multiple asset pools
+| `nasdaq100_six_month_momentum_rank.csv` | Latest Nasdaq-100 six-month mean momentum ranking |
+| `nasdaq100_mean_momentum_backtest_summary.csv` | Backtest summary statistics |
+| `nasdaq100_mean_momentum_backtest_returns.csv` | Monthly backtest return history |
+| `nasdaq100_mean_momentum_backtest_holdings.csv` | Monthly strategy holdings |
+| `README.md` | Auto-generated project README |
 
 ---
 
 ## Disclaimer
 
-This project is for research and educational purposes only.
+This project is for educational and research purposes only.
 
 It is not financial advice.
 
-The strategy result does not guarantee future performance.
+Momentum strategies can suffer from drawdowns, turnover costs, tax effects, slippage, survivorship bias, and regime changes.
 
-Use the code and results at your own risk.
+Past performance does not guarantee future results.
