@@ -10,6 +10,9 @@ END_DATE = "2026-12-31"
 LOOKBACK_MONTHS = 6
 TOP_N = 3
 
+MARKET_INDEX_TICKER = "QQQ"
+MARKET_TREND_MONTHS = 10
+
 RETURNS_OUTPUT = "nasdaq100_mean_momentum_backtest_returns.csv"
 HOLDINGS_OUTPUT = "nasdaq100_mean_momentum_backtest_holdings.csv"
 SUMMARY_OUTPUT = "nasdaq100_mean_momentum_backtest_summary.csv"
@@ -44,7 +47,26 @@ def download_adjusted_close(tickers, start_date, end_date):
     price_df = price_df.ffill()
 
     return price_df
+    
+def download_market_index(ticker, start_date, end_date):
+    data = yf.download(
+        tickers=ticker,
+        start=start_date,
+        end=end_date,
+        auto_adjust=True,
+        progress=False,
+    )
 
+    if data.empty:
+        return pd.Series(dtype=float)
+
+    if isinstance(data.columns, pd.MultiIndex):
+        close = data[ticker]["Close"]
+    else:
+        close = data["Close"]
+
+    close = close.dropna()
+    return close
 
 def calculate_six_month_mean_momentum(monthly_prices):
     monthly_returns = monthly_prices.pct_change()
@@ -57,10 +79,35 @@ def calculate_six_month_mean_momentum(monthly_prices):
 
     return six_month_mean_momentum
 
+def calculate_market_regime(market_index_prices):
+    monthly_index = market_index_prices.resample("ME").last()
 
-def run_backtest(price_df):
+    market_ma = monthly_index.rolling(window=MARKET_TREND_MONTHS).mean()
+
+    regime = pd.DataFrame(
+        {
+            "market_index_price": monthly_index,
+            "market_index_ma": market_ma,
+        }
+    )
+
+    regime["is_bull_market"] = (
+        regime["market_index_price"] > regime["market_index_ma"]
+    )
+
+    regime["market_regime"] = regime["is_bull_market"].map(
+        {
+            True: "Bull Market",
+            False: "Bear Market",
+        }
+    )
+
+    return regime
+
+def run_backtest(price_df, market_index_prices):
     monthly_prices = price_df.resample("ME").last()
     momentum_score = calculate_six_month_mean_momentum(monthly_prices)
+    market_regime = calculate_market_regime(market_index_prices)
 
     portfolio_records = []
     holdings_records = []
@@ -70,27 +117,51 @@ def run_backtest(price_df):
         holding_start = monthly_prices.index[i]
         holding_end = monthly_prices.index[i + 1]
 
+        if ranking_date not in market_regime.index:
+            continue
+
+        regime_row = market_regime.loc[ranking_date]
+
+        if pd.isna(regime_row["market_index_ma"]):
+            continue
+
+        is_bull_market = bool(regime_row["is_bull_market"])
+        market_regime_label = regime_row["market_regime"]
+
         scores = momentum_score.iloc[i].dropna()
         selected = scores.sort_values(ascending=False).head(TOP_N).index.tolist()
 
         if len(selected) == 0:
             continue
 
-        start_prices = monthly_prices.loc[holding_start, selected]
-        end_prices = monthly_prices.loc[holding_end, selected]
+        if is_bull_market:
+            start_prices = monthly_prices.loc[holding_start, selected]
+            end_prices = monthly_prices.loc[holding_end, selected]
 
-        stock_returns = end_prices / start_prices - 1
-        stock_returns = stock_returns.dropna()
+            stock_returns = end_prices / start_prices - 1
+            stock_returns = stock_returns.dropna()
 
-        if len(stock_returns) == 0:
-            continue
+            if len(stock_returns) == 0:
+                continue
 
-        portfolio_return = stock_returns.mean()
+            portfolio_return = stock_returns.mean()
+            selected_stocks = ",".join(stock_returns.index.tolist())
+            trade_executed = True
+
+        else:
+            portfolio_return = 0.0
+            selected_stocks = "CASH"
+            trade_executed = False
 
         portfolio_records.append(
             {
                 "ranking_date": ranking_date.strftime("%Y-%m-%d"),
-                "selected_stocks": ",".join(selected),
+                "market_regime": market_regime_label,
+                "is_bull_market": is_bull_market,
+                "trade_executed": trade_executed,
+                "market_index_price": regime_row["market_index_price"],
+                "market_index_ma": regime_row["market_index_ma"],
+                "selected_stocks": selected_stocks,
                 "holding_start": holding_start.strftime("%Y-%m-%d"),
                 "holding_end": holding_end.strftime("%Y-%m-%d"),
                 "portfolio_return": portfolio_return,
@@ -101,9 +172,12 @@ def run_backtest(price_df):
         holdings_records.append(
             {
                 "ranking_date": ranking_date.strftime("%Y-%m-%d"),
+                "market_regime": market_regime_label,
+                "is_bull_market": is_bull_market,
+                "trade_executed": trade_executed,
                 "holding_start": holding_start.strftime("%Y-%m-%d"),
                 "holding_end": holding_end.strftime("%Y-%m-%d"),
-                "selected_stocks": ",".join(selected),
+                "selected_stocks": selected_stocks,
             }
         )
 
