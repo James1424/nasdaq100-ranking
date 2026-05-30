@@ -217,6 +217,11 @@ def summarize_backtest(returns_df):
     max_drawdown = drawdown.min()
 
     win_rate = (monthly_returns > 0).mean()
+    
+    bull_months = returns_df["is_bull_market"].sum() if "is_bull_market" in returns_df.columns else None
+    bear_months = len(returns_df) - bull_months if bull_months is not None else None
+    trading_months = returns_df["trade_executed"].sum() if "trade_executed" in returns_df.columns else None
+    cash_months = len(returns_df) - trading_months if trading_months is not None else None
 
     summary = pd.DataFrame(
         [
@@ -226,6 +231,12 @@ def summarize_backtest(returns_df):
                 "end_date": returns_df["holding_end"].iloc[-1],
                 "lookback_months": LOOKBACK_MONTHS,
                 "top_n": TOP_N,
+                "market_index_ticker": MARKET_INDEX_TICKER,
+                "market_trend_months": MARKET_TREND_MONTHS,
+                "bull_market_months": bull_months,
+                "bear_market_months": bear_months,
+                "trading_months": trading_months,
+                "cash_months": cash_months,
                 "total_return_percent": total_return * 100,
                 "annualized_return_percent": annualized_return * 100,
                 "annualized_volatility_percent": annualized_volatility * 100,
@@ -252,8 +263,15 @@ if __name__ == "__main__":
         end_date=END_DATE,
     )
 
-    print("\nRunning six-month mean momentum backtest...")
-    returns_df, holdings_df = run_backtest(price_df)
+    print("\nDownloading market index prices...")
+    market_index_prices = download_market_index(
+        ticker=MARKET_INDEX_TICKER,
+        start_date=START_DATE,
+        end_date=END_DATE,
+    )
+    
+    print("\nRunning six-month mean momentum backtest with market regime filter...")
+    returns_df, holdings_df = run_backtest(price_df, market_index_prices)
 
     print("\nSummarizing backtest...")
     summary_df = summarize_backtest(returns_df)
