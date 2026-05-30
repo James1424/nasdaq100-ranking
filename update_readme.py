@@ -1,4 +1,5 @@
-from datetime import datetime
+from datetime import datetime, timezone
+
 import pandas as pd
 
 
@@ -31,23 +32,54 @@ def generate_readme(top_n=20):
         ]
     ].to_markdown(index=False)
 
-    now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
-    readme = f"""# Nasdaq-100 Six-Month Momentum Ranking
+    readme_lines = [
+        "# Nasdaq-100 Six-Month Momentum Ranking",
+        "",
+        "This repository automatically calculates the six-month momentum ranking of Nasdaq-100 stocks.",
+        "",
+        "The ranking is based on adjusted closing prices over the most recent six-month period.",
+        "",
+        f"## Latest Top {top_n} Ranking",
+        "",
+        f"Last updated: **{now}**",
+        "",
+        table,
+        "",
+        "## Methodology",
+        "",
+        "For each stock, six-month momentum is calculated as:",
+        "",
+        "```text",
+        "six_month_momentum = last_adjusted_close / first_adjusted_close - 1",
+        "```",
+        "",
+        "The stocks are then sorted from highest momentum to lowest momentum.",
+        "",
+        "## Output File",
+        "",
+        "The full ranking is saved in:",
+        "",
+        "```text",
+        CSV_PATH,
+        "```",
+        "",
+        "## Notes",
+        "",
+        "- Price data is downloaded using `yfinance`.",
+        "- Momentum is calculated using adjusted close prices.",
+        "- The ranking is updated by GitHub Actions.",
+        "- This project is for research and educational purposes only.",
+        "- This project does not provide financial advice.",
+        "",
+    ]
 
-This repository automatically calculates the six-month momentum ranking of Nasdaq-100 stocks.
+    readme = "\n".join(readme_lines)
 
-The ranking is based on adjusted closing prices over the most recent six-month period.
+    with open(README_PATH, "w", encoding="utf-8") as f:
+        f.write(readme)
 
-## Latest Top {top_n} Ranking
 
-Last updated: **{now}**
-
-{table}
-
-## Methodology
-
-For each stock, six-month momentum is calculated as:
-
-```text
-six_month_momentum = last_adjusted_close / first_adjusted_close - 1
+if __name__ == "__main__":
+    generate_readme(top_n=20)
