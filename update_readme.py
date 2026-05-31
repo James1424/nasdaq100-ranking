@@ -238,6 +238,7 @@ def generate_readme(top_n=20):
         "",
         "",
         "Author: Haoyang Luo",
+        "",
         f"Last updated: **{now}**",
         "",
         "---",
