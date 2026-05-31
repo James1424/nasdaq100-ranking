@@ -237,6 +237,7 @@ def generate_readme(top_n=20):
         "> At the beginning of each month, rank Nasdaq-100 stocks by their average monthly return over the previous six months, buy the top three stocks, and hold them for the following month.",
         "",
         "",
+        "Author: Haoyang Luo"
         f"Last updated: **{now}**",
         "",
         "---",
