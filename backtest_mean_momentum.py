@@ -17,7 +17,7 @@ DATA_START_DATE = "2014-01-01"
 # 2016-02-01 is a trading day, so the first holding period starts exactly here.
 BACKTEST_START_DATE = "2016-02-01"
 
-END_DATE = "2026-12-31"
+END_DATE = (pd.Timestamp.today().normalize()).strftime("%Y-%m-%d")
 
 LOOKBACK_MONTHS = 6
 TOP_N = 3
