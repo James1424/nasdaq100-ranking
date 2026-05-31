@@ -228,7 +228,7 @@ def generate_readme(top_n=20):
     )
 
     readme_parts = [
-        "# Nasdaq-100 Six-Month Mean Momentum Strategy",
+        "# Nasdaq-100 Six-Month Mean Momentum Strategy (Automated Update)",
         "",
         "This repository builds a rule-based momentum ranking and backtesting system for Nasdaq-100 stocks.",
         "",
